@@ -26,6 +26,7 @@ def init_db(path="skills_radar.db"):
     c.execute("""CREATE TABLE IF NOT EXISTS posting_skills (
         posting_id INTEGER,
         skill_id INTEGER,
+        PRIMARY KEY (posting_id, skill_id),
         FOREIGN KEY(posting_id) REFERENCES postings(id),
         FOREIGN KEY(skill_id) REFERENCES skills(id)
     )""")

@@ -5,20 +5,28 @@ from db import init_db
 
 load_dotenv()
 
-def fetch_postings(pages=1, query="software engineer"):
+QUERIES = [
+    "data scientist",
+    "machine learning engineer",
+    "data analyst",
+    "data engineer",
+    "python developer",
+]
+
+def fetch_postings(pages=2, queries=QUERIES):
     all_jobs = []
-    for page in range(1, pages + 1):
-        url = f"https://api.adzuna.com/v1/api/jobs/gb/search/{page}"
-        params = {
-            "app_id": os.getenv("ADZUNA_APP_ID"),
-            "app_key": os.getenv("ADZUNA_APP_KEY"),
-            "what": query,
-            "results_per_page": 50
-        }
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        data = response.json()
-        all_jobs.extend(data.get("results", []))
+    for query in queries:
+        for page in range(1, pages + 1):
+            url = f"https://api.adzuna.com/v1/api/jobs/gb/search/{page}"
+            params = {
+                "app_id": os.getenv("ADZUNA_APP_ID"),
+                "app_key": os.getenv("ADZUNA_APP_KEY"),
+                "what": query,
+                "results_per_page": 50
+            }
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            all_jobs.extend(response.json().get("results", []))
     return all_jobs
 
 def store_postings(jobs, conn):
@@ -48,7 +56,7 @@ def store_postings(jobs, conn):
 
 if __name__ == "__main__":
     conn = init_db()
-    jobs = fetch_postings(pages=2, query="software engineer")
+    jobs = fetch_postings(pages=2)
     inserted = store_postings(jobs, conn)
     print(f"Fetched {len(jobs)} postings, inserted {inserted} new rows.")
     conn.close()        
