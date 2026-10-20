@@ -2,6 +2,8 @@ import os
 import requests
 from dotenv import load_dotenv
 from db import init_db
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 load_dotenv()
 
@@ -13,7 +15,19 @@ QUERIES = [
     "python developer",
 ]
 
+def make_session():
+    retry = Retry(
+        total=3,
+        backoff_factor=2,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET"],
+    )
+    session = requests.Session()
+    session.mount("https://", HTTPAdapter(max_retries=retry))
+    return session
+
 def fetch_postings(pages=2, queries=QUERIES):
+    session = make_session()
     all_jobs = []
     for query in queries:
         for page in range(1, pages + 1):
@@ -24,7 +38,7 @@ def fetch_postings(pages=2, queries=QUERIES):
                 "what": query,
                 "results_per_page": 50
             }
-            response = requests.get(url, params=params)
+            response = session.get(url, params=params, timeout=30)
             response.raise_for_status()
             all_jobs.extend(response.json().get("results", []))
     return all_jobs
