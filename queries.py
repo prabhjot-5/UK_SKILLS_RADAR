@@ -91,3 +91,30 @@ def skill_trend(skill):
         }
         for r in rows
     ]
+
+def get_totals():
+    conn = get_conn()
+    try:
+        postings = conn.execute("SELECT COUNT(*) FROM postings").fetchone()[0]
+        links = conn.execute("SELECT COUNT(*) FROM posting_skills").fetchone()[0]
+        skills = conn.execute(
+            "SELECT COUNT(DISTINCT skill_id) FROM posting_skills"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    return {"postings": postings, "links": links, "skills": skills}
+
+
+def all_skill_names():
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            """SELECT s.name
+               FROM skills s
+               JOIN posting_skills ps ON ps.skill_id = s.id
+               GROUP BY s.name
+               ORDER BY COUNT(*) DESC"""
+        ).fetchall()
+    finally:
+        conn.close()
+    return [row["name"] for row in rows]
