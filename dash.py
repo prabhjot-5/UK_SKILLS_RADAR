@@ -5,10 +5,7 @@ import streamlit as st
 import queries
 
 
-# =========================================================
-# PAGE CONFIGURATION
-# =========================================================
-
+# ---------- Page setup ----------
 st.set_page_config(
     page_title="UK Skills Radar",
     page_icon="📊",
@@ -17,10 +14,7 @@ st.set_page_config(
 )
 
 
-# =========================================================
-# CUSTOM STYLING
-# =========================================================
-
+# ---------- Styling (CSS) ----------
 st.markdown(
     """
     <style>
@@ -95,10 +89,7 @@ st.markdown(
 )
 
 
-# =========================================================
-# HEADER
-# =========================================================
-
+# ---------- Header ----------
 header_left, header_right = st.columns([4, 1])
 
 with header_left:
@@ -117,10 +108,7 @@ with header_right:
 st.divider()
 
 
-# =========================================================
-# DATA AVAILABILITY
-# =========================================================
-
+# ---------- Check that there is data ----------
 totals = queries.get_totals()
 
 if totals["postings"] == 0 or totals["links"] == 0:
@@ -131,10 +119,7 @@ if totals["postings"] == 0 or totals["links"] == 0:
     st.stop()
 
 
-# =========================================================
-# SIDEBAR CONTROLS
-# =========================================================
-
+# ---------- Sidebar controls ----------
 st.sidebar.markdown("## 🎛️ Dashboard controls")
 st.sidebar.caption("Customise your skills analysis.")
 
@@ -147,15 +132,7 @@ skills_to_show = st.sidebar.slider(
 )
 
 skill_names = queries.all_skill_names()
-
-if not skill_names:
-    st.info("No skills have been extracted yet.")
-    st.stop()
-
-chosen_skill = st.sidebar.selectbox(
-    "Skill trend",
-    skill_names,
-)
+chosen_skill = st.sidebar.selectbox("Skill trend", skill_names)
 
 st.sidebar.divider()
 
@@ -164,27 +141,15 @@ st.sidebar.caption(
     "Tracks skills mentioned in UK data and machine learning "
     "job postings using NLP."
 )
-
 st.sidebar.caption("Source: Adzuna API")
 
 
-# =========================================================
-# LOAD SKILL DATA
-# =========================================================
-
+# ---------- Get the skill data ----------
 top_skills = queries.trending_skills(skills_to_show)
-
-if not top_skills:
-    st.warning("No skill rankings are available.")
-    st.stop()
-
 best_skill = top_skills[0]
 
 
-# =========================================================
-# KPI CARDS
-# =========================================================
-
+# ---------- Number cards ----------
 st.markdown("### Market at a glance")
 
 col1, col2, col3, col4 = st.columns(4)
@@ -192,21 +157,21 @@ col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.metric(
         label="📄 Postings analysed",
-        value=f'{totals["postings"]:,}',
+        value=f"{totals['postings']:,}",
         help="Number of job postings recorded in the dataset.",
     )
 
 with col2:
     st.metric(
         label="🔗 Skill matches",
-        value=f'{totals["links"]:,}',
+        value=f"{totals['links']:,}",
         help="Number of posting-to-skill matches found.",
     )
 
 with col3:
     st.metric(
         label="🧠 Distinct skills",
-        value=f'{totals["skills"]:,}',
+        value=f"{totals['skills']:,}",
         help="Number of distinct skills in the dataset.",
     )
 
@@ -216,313 +181,164 @@ with col4:
         value=best_skill["skill"],
         help="The skill appearing in the largest share of postings.",
     )
-
-    st.caption(
-        f'{best_skill["share_pct"]}% of analysed postings'
-    )
+    st.caption(f"{best_skill['share_pct']}% of analysed postings")
 
 
-# =========================================================
-# SKILLS CHART
-# =========================================================
-
+# ---------- Charts ----------
 st.divider()
 
 st.markdown("### 📈 Skills intelligence")
-st.caption(
-    "Explore the most frequently requested skills and how demand changes."
-)
+st.caption("Explore the most frequently requested skills and how demand changes.")
 
 left, right = st.columns([1.15, 1], gap="large")
 
-
-# ---------------------------------------------------------
-# LEFT: MOST IN-DEMAND SKILLS
-# ---------------------------------------------------------
-
+# Left: bar chart of the most in-demand skills
 with left:
     st.subheader("Most in-demand skills")
     st.caption("Percentage of analysed postings mentioning each skill.")
 
     skills_table = pd.DataFrame(top_skills)
+    skills_table = skills_table.sort_values("share_pct", ascending=True)
 
-    if not skills_table.empty:
-        skills_table["share_pct"] = pd.to_numeric(
-            skills_table["share_pct"],
-            errors="coerce",
-        )
+    bar_chart = px.bar(
+        skills_table,
+        x="share_pct",
+        y="skill",
+        orientation="h",
+        text="share_pct",
+        labels={"share_pct": "Share of postings (%)", "skill": ""},
+        color_discrete_sequence=["#0B6E78"],
+    )
 
-        skills_table = skills_table.dropna(
-            subset=["skill", "share_pct"]
-        )
+    bar_chart.update_traces(
+        texttemplate="%{x:.1f}%",
+        textposition="outside",
+        cliponaxis=False,
+        marker_line_width=0,
+        hovertemplate="<b>%{y}</b><br>Share of postings: %{x:.1f}%<extra></extra>",
+    )
 
-        skills_table = skills_table.sort_values(
-            "share_pct",
-            ascending=True,
-        )
+    bar_chart.update_layout(
+        template="plotly_white",
+        height=max(380, len(skills_table) * 35),
+        margin=dict(l=10, r=45, t=20, b=45),
+        xaxis=dict(
+            title="Share of postings (%)",
+            rangemode="tozero",
+            showgrid=True,
+            gridcolor="#E8EEEE",
+            zeroline=False,
+        ),
+        yaxis=dict(title="", autorange="reversed"),
+        font=dict(family="Arial, sans-serif", size=12, color="#263B3E"),
+        showlegend=False,
+    )
 
-        bar_chart = px.bar(
-            skills_table,
-            x="share_pct",
-            y="skill",
-            orientation="h",
-            text="share_pct",
-            labels={
-                "share_pct": "Share of postings (%)",
-                "skill": "",
-            },
-            color_discrete_sequence=["#0B6E78"],
-            hover_data={
-                "share_pct": ":.1f",
-            },
-        )
-
-        bar_chart.update_traces(
-            texttemplate="%{x:.1f}%",
-            textposition="outside",
-            cliponaxis=False,
-            marker_line_width=0,
-            hovertemplate=(
-                "<b>%{y}</b><br>"
-                "Share of postings: %{x:.1f}%"
-                "<extra></extra>"
-            ),
-        )
-
-        bar_chart.update_layout(
-            template="plotly_white",
-            height=max(380, len(skills_table) * 35),
-            margin=dict(l=10, r=45, t=20, b=45),
-            xaxis=dict(
-                title="Share of postings (%)",
-                rangemode="tozero",
-                showgrid=True,
-                gridcolor="#E8EEEE",
-                zeroline=False,
-            ),
-            yaxis=dict(
-                title="",
-                autorange="reversed",
-            ),
-            font=dict(
-                family="Arial, sans-serif",
-                size=12,
-                color="#263B3E",
-            ),
-            showlegend=False,
-        )
-
-        st.plotly_chart(
-            bar_chart,
-            use_container_width=True,
-            config={"displayModeBar": False},
-        )
-
-    else:
-        st.info("No skill ranking data is available.")
+    st.plotly_chart(bar_chart, config={"displayModeBar": False})
 
 
-# ---------------------------------------------------------
-# RIGHT: SKILL TREND
-# ---------------------------------------------------------
-
+# Right: trend line for the chosen skill
 with right:
     st.subheader(f"Trend: {chosen_skill}")
-    st.caption(
-        "Daily share of postings mentioning the selected skill."
-    )
+    st.caption("Daily share of postings mentioning the selected skill.")
 
     trend_data = queries.skill_trend(chosen_skill)
 
     if trend_data:
         trend_table = pd.DataFrame(trend_data)
+        trend_table["day"] = pd.to_datetime(trend_table["day"], errors="coerce")
+        trend_table = trend_table.dropna(subset=["day"])
 
-        if {"day", "share_pct"}.issubset(trend_table.columns):
-            trend_table["day"] = pd.to_datetime(
-                trend_table["day"],
-                errors="coerce",
-            )
+        line_chart = px.line(
+            trend_table,
+            x="day",
+            y="share_pct",
+            markers=True,
+            labels={"day": "Date", "share_pct": "Share of postings (%)"},
+            color_discrete_sequence=["#0B6E78"],
+        )
 
-            trend_table["share_pct"] = pd.to_numeric(
-                trend_table["share_pct"],
-                errors="coerce",
-            )
+        line_chart.update_traces(
+            line=dict(width=3),
+            marker=dict(size=6),
+            hovertemplate="Date: %{x|%d %b %Y}<br>Share: %{y:.1f}%<extra></extra>",
+        )
 
-            trend_table = (
-                trend_table
-                .dropna(subset=["day", "share_pct"])
-                .sort_values("day")
-            )
+        line_chart.update_layout(
+            template="plotly_white",
+            height=420,
+            margin=dict(l=10, r=20, t=20, b=45),
+            hovermode="x unified",
+            xaxis=dict(title="", showgrid=False),
+            yaxis=dict(
+                title="Share of postings (%)",
+                rangemode="tozero",
+                gridcolor="#E8EEEE",
+            ),
+            font=dict(family="Arial, sans-serif", size=12, color="#263B3E"),
+            showlegend=False,
+        )
 
-            if not trend_table.empty:
-                line_chart = px.line(
-                    trend_table,
-                    x="day",
-                    y="share_pct",
-                    markers=True,
-                    labels={
-                        "day": "Date",
-                        "share_pct": "Share of postings (%)",
-                    },
-                    color_discrete_sequence=["#0B6E78"],
-                )
-
-                line_chart.update_traces(
-                    line=dict(width=3),
-                    marker=dict(size=6),
-                    hovertemplate=(
-                        "Date: %{x|%d %b %Y}<br>"
-                        "Share: %{y:.1f}%"
-                        "<extra></extra>"
-                    ),
-                )
-
-                line_chart.update_layout(
-                    template="plotly_white",
-                    height=420,
-                    margin=dict(l=10, r=20, t=20, b=45),
-                    hovermode="x unified",
-                    xaxis=dict(
-                        title="",
-                        showgrid=False,
-                    ),
-                    yaxis=dict(
-                        title="Share of postings (%)",
-                        rangemode="tozero",
-                        gridcolor="#E8EEEE",
-                    ),
-                    font=dict(
-                        family="Arial, sans-serif",
-                        size=12,
-                        color="#263B3E",
-                    ),
-                    showlegend=False,
-                )
-
-                st.plotly_chart(
-                    line_chart,
-                    use_container_width=True,
-                    config={"displayModeBar": False},
-                )
-
-                st.caption(
-                    "Daily values may fluctuate when posting volumes are low."
-                )
-
-            else:
-                st.info("No valid trend data is available yet.")
-
-        else:
-            st.info("Trend data is missing the expected columns.")
-
+        st.plotly_chart(line_chart, config={"displayModeBar": False})
+        st.caption("Daily values may fluctuate when posting volumes are low.")
     else:
         st.info("Not enough historical data for this skill yet.")
 
 
-# =========================================================
-# LATEST JOB POSTINGS
-# =========================================================
-
+# ---------- Latest job postings ----------
 st.divider()
 
 st.markdown("### 💼 Latest job postings")
-st.caption(
-    "Browse recent vacancies and the skills detected in their descriptions."
-)
+st.caption("Browse recent vacancies and the skills detected in their descriptions.")
 
 latest = queries.latest_postings(100)
 
 if latest:
-    # Prepare the display data without changing the original records.
-    prepared_postings = []
-
+    # Tidy up each posting so it looks nice in the table
     for posting in latest:
-        row = posting.copy()
-
-        # Handle missing or empty skills.
-        skills = row.get("skills") or []
-
-        if isinstance(skills, str):
-            row["skills"] = skills if skills.strip() else "No skills detected"
+        # Turn the list of skills into one piece of text
+        if posting["skills"]:
+            posting["skills"] = ", ".join(posting["skills"])
         else:
-            row["skills"] = (
-                ", ".join(str(skill) for skill in skills)
-                if skills
-                else "No skills detected"
-            )
+            posting["skills"] = "No skills detected"
 
-        # Format dates safely.
-        raw_date = row.get("date_posted")
+        # Turn the date into a friendly format like "01 Oct 2026"
+        if posting["date_posted"]:
+            posting["date_posted"] = pd.to_datetime(posting["date_posted"]).strftime("%d %b %Y")
+        else:
+            posting["date_posted"] = "Unknown"
 
-        parsed_date = pd.to_datetime(
-            raw_date,
-            errors="coerce",
-            utc=True,
-        )
-
-        row["date_posted"] = (
-            parsed_date.strftime("%d %b %Y")
-            if pd.notna(parsed_date)
-            else "Unknown"
-        )
-
-        prepared_postings.append(row)
-
-    postings_table = pd.DataFrame(prepared_postings)
-
-    expected_columns = [
-        "title",
-        "company",
-        "location",
-        "skills",
-        "date_posted",
-        "url",
+    postings_table = pd.DataFrame(latest)
+    postings_table = postings_table[
+        ["title", "company", "location", "skills", "date_posted", "url"]
     ]
 
-    # Ensure the expected display columns exist.
-    for column in expected_columns:
-        if column not in postings_table.columns:
-            postings_table[column] = ""
-
-    postings_table = postings_table[expected_columns].copy()
-
-    # Search across title, company, location and skills.
+    # Search box
     search = st.text_input(
         "🔎 Search postings",
         placeholder="Search job titles, companies, locations or skills...",
     )
 
     if search.strip():
-        searchable_columns = [
-            "title",
-            "company",
-            "location",
-            "skills",
-        ]
+        # Start with "nothing matches", then switch on every row that matches in any column
+        matches = pd.Series(False, index=postings_table.index)
 
-        mask = postings_table[searchable_columns].apply(
-            lambda column: column.astype(str).str.contains(
-                search.strip(),
-                case=False,
-                na=False,
-                regex=False,
+        for column in ["title", "company", "location", "skills"]:
+            column_matches = postings_table[column].astype(str).str.contains(
+                search.strip(), case=False, na=False, regex=False
             )
-        ).any(axis=1)
+            matches = matches | column_matches
 
-        displayed_postings = postings_table[mask].copy()
-
+        displayed_postings = postings_table[matches]
     else:
-        displayed_postings = postings_table.copy()
+        displayed_postings = postings_table
 
     st.caption(
-        f"Showing {len(displayed_postings):,} of "
-        f"{len(postings_table):,} postings."
+        f"Showing {len(displayed_postings):,} of {len(postings_table):,} postings."
     )
 
-    # CSV export.
-    csv_data = displayed_postings.to_csv(
-        index=False
-    ).encode("utf-8-sig")
+    # Download button
+    csv_data = displayed_postings.to_csv(index=False).encode("utf-8-sig")
 
     st.download_button(
         label="⬇️ Download postings as CSV",
@@ -533,32 +349,17 @@ if latest:
 
     st.write("")
 
+    # The table
     st.dataframe(
         displayed_postings,
         hide_index=True,
-        use_container_width=True,
         height=520,
         column_config={
-            "title": st.column_config.TextColumn(
-                "Job title",
-                width="medium",
-            ),
-            "company": st.column_config.TextColumn(
-                "Company",
-                width="medium",
-            ),
-            "location": st.column_config.TextColumn(
-                "Location",
-                width="small",
-            ),
-            "skills": st.column_config.TextColumn(
-                "Detected skills",
-                width="large",
-            ),
-            "date_posted": st.column_config.TextColumn(
-                "Date posted",
-                width="small",
-            ),
+            "title": st.column_config.TextColumn("Job title", width="medium"),
+            "company": st.column_config.TextColumn("Company", width="medium"),
+            "location": st.column_config.TextColumn("Location", width="small"),
+            "skills": st.column_config.TextColumn("Detected skills", width="large"),
+            "date_posted": st.column_config.TextColumn("Date posted", width="small"),
             "url": st.column_config.LinkColumn(
                 "Job listing",
                 display_text="↗ Open job",
@@ -566,15 +367,11 @@ if latest:
             ),
         },
     )
-
 else:
     st.info("No job postings are available yet.")
 
 
-# =========================================================
-# METHODOLOGY AND FOOTER
-# =========================================================
-
+# ---------- About the data and footer ----------
 st.divider()
 
 with st.expander("ℹ️ About the data and methodology"):
